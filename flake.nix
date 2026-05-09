@@ -1,0 +1,60 @@
+{
+  description = "Haskell AtCoder environment";
+  inputs = {
+    nixpkgs.url = "github:NixOS/nixpkgs/nixos-unstable";
+    flake-utils.url = "github:numtide/flake-utils";
+  };
+
+  outputs = {self, nixpkgs, flake-utils }:
+    flake-utils.lib.eachDefaultSystem (system:
+      let
+        pkgs = nixpkgs.legacyPackages.${system};
+        hpkgs = pkgs.haskellPackages;
+        pythonWithOj = pkgs.python313.withPackages (ps: with ps; [
+          online-judge-tools
+          lxml
+        ]);
+        # command aleas 定義
+        fmt = pkgs.writeShellScriptBin "hsfmt" "fourmolu --mode inplace \"$@\"";
+        run = pkgs.writeShellScriptBin "run" "runghc \"$@\"";
+        actest = pkgs.writeShellScriptBin "actest" "oj test -c \"runghc Main.hs\" -d tests/ \"$@\"";
+        # npm package install
+        atcoder-cli = pkgs.buildNpmPackage {
+          pname = "atcoder-cli";
+          version = "2.2.0";
+
+          src = pkgs.fetchFromGitHub {
+            owner = "Tatamo";
+            repo = "atcoder-cli";
+            rev = "v2.2.0";
+            hash = "sha256-7pbCTgWt+khKVyMV03HanvuOX2uAC0PL9OLmqly7IWE=";
+          };
+
+          npmDepsHash = "sha256-ufG7Fq5D2SOzUp8KYRYUB5tYJYoADuhK+2zDfG0a3ks=";
+          npmInstallFlags = [
+            "--omit=optional"
+          ];
+          npmRebuildFlags = [
+            "--omit=optional"
+          ];
+
+          NODE_OPTIONS = "--openssl-legacy-provider";
+      };
+      in {
+        devShells.default = pkgs.mkShell {
+          buildInputs = [
+            hpkgs.ghc
+            hpkgs.haskell-language-server
+            hpkgs.fourmolu
+            hpkgs.hoogle
+
+            fmt
+            run
+            actest
+
+            atcoder-cli
+            pythonWithOj
+          ];
+        };
+      });
+}
